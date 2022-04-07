@@ -1,11 +1,18 @@
+use clap::lazy_static::lazy_static;
 use clap::Parser;
+use std::borrow::{Borrow, BorrowMut};
 use std::cell::RefCell;
 use std::fs::{File, OpenOptions};
+use std::future::Future;
 use std::io::Read;
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
 use subprocess::NullFile;
+
+use std::sync::{Arc, Mutex};
+use subprocess::*;
 
 #[derive(Parser)]
 #[clap(version, about = "file-watcher")]
@@ -60,6 +67,22 @@ fn run(args: &Args) -> ! {
     let mut lens: (usize, usize) = (0, 0);
     let mut last_modified: std::time::SystemTime = std::time::SystemTime::now();
 
+    let mut proc: RefCell<Popen> = {
+        RefCell::new(
+            Popen::create(
+                &[&args.command],
+                PopenConfig {
+                    detached: true,
+                    stdout: Redirection::Pipe,
+                    stdin: Redirection::Pipe,
+                    stderr: Redirection::Pipe,
+                    ..Default::default()
+                },
+            )
+            .expect("couldn't spawn child command"),
+        )
+    };
+
     if args.path.exists() {
         let mut first_time = true;
         loop {
@@ -69,7 +92,7 @@ fn run(args: &Args) -> ! {
                 let modified = f.metadata().unwrap().modified().unwrap();
 
                 if modified != last_modified {
-                    execute_command(args);
+                    execute_command(args, &mut proc);
                 }
 
                 last_modified = modified;
@@ -83,6 +106,7 @@ fn run(args: &Args) -> ! {
                         &mut first_time,
                         &mut f,
                         (args.length, args.sum),
+                        &mut proc,
                     );
                 }
             } else {
@@ -107,6 +131,7 @@ fn deep_check(
     first_time: &mut bool,
     f: &mut File,
     deep: (bool, bool),
+    proc: &mut RefCell<Popen>,
 ) {
     if f.read_to_end(contents.get_mut()).is_ok() {
         let contents = contents.get_mut();
@@ -115,7 +140,7 @@ fn deep_check(
                 lens.0 = contents.len();
 
                 if lens.0 != lens.1 && !*first_time {
-                    execute_command(args);
+                    execute_command(args, proc);
                 }
 
                 *lens = (0, lens.0);
@@ -125,7 +150,7 @@ fn deep_check(
                 contents.iter().for_each(|&n| sum.0 += n as u128);
 
                 if sum.0 != sum.1 {
-                    execute_command(args);
+                    execute_command(args, proc);
                 }
 
                 *sum = (0, sum.0);
@@ -138,9 +163,9 @@ fn deep_check(
     }
 }
 
-fn execute_command(args: &Args) {
+fn execute_command(args: &Args, mut proc: &mut RefCell<Popen>) {
     printf!(
-        "File changed. Executing{}...",
+        "File changed. Finishing{}...",
         if args.verbose {
             format!(" \"{}\"", &args.command)
         } else {
@@ -148,20 +173,25 @@ fn execute_command(args: &Args) {
         }
     );
 
-    let status = subprocess::Exec::shell(&args.command)
-        .stdin(NullFile)
-        .stdout(NullFile)
-        .stderr(NullFile)
-        .join()
-        .unwrap();
+    let finish = { proc.deref_mut().get_mut().poll().is_some() };
 
-    if !status.success() {
-        if args.ignore_errors {
-            printf!("Error!\n");
-        } else {
-            panic!("Something went wrong");
-        }
-    } else {
-        printf!("Success!\n");
+    if finish {
+        proc.deref_mut().get_mut().terminate().unwrap();
     }
+
+    printf!("Rerunning...");
+    let new = Popen::create(
+        &[&args.command],
+        PopenConfig {
+            detached: true,
+            stdout: Redirection::Pipe,
+            stdin: Redirection::Pipe,
+            stderr: Redirection::Pipe,
+            ..Default::default()
+        },
+    )
+    .expect("couldn't spawn child command");
+
+    proc.deref_mut().replace_with(|_| new);
+    printf!("Spawned!\n")
 }
