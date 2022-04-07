@@ -1,18 +1,20 @@
 
 	fw 0.2.0
 	file-watcher
-	
+
 	USAGE:
 	    fw [OPTIONS] <PATH> <COMMAND>
-	
+
 	ARGS:
 	    <PATH>       File to watch
 	    <COMMAND>    Command to execute
-	
+
 	OPTIONS:
+	    -d, --deep           Whether a deep check must be made
 	    -h, --help           Print help information
 	    -t, --time <TIME>    Check interval time [default: 2.5]
 	    -V, --version        Print version information
+
 
 </br>
 
