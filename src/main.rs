@@ -1,17 +1,12 @@
-use clap::lazy_static::lazy_static;
 use clap::Parser;
-use std::borrow::{Borrow, BorrowMut};
 use std::cell::RefCell;
 use std::fs::{File, OpenOptions};
-use std::future::Future;
 use std::io::Read;
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
-use subprocess::NullFile;
 
-use std::sync::{Arc, Mutex};
 use subprocess::*;
 
 #[derive(Parser)]
@@ -39,7 +34,7 @@ struct Args {
     #[clap(short, long)]
     pub verbose: bool,
 
-    /// Ignore errors when executing comman and don't panic
+    /// Ignore errors when executing command and don't panic
     #[clap(short, long)]
     pub ignore_errors: bool,
 }
@@ -123,6 +118,7 @@ fn run(args: &Args) -> ! {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn deep_check(
     args: &Args,
     contents: &mut RefCell<Vec<u8>>,
