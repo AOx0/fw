@@ -31,6 +31,10 @@ struct Args {
     /// Show command
     #[clap(short, long)]
     pub verbose: bool,
+
+    /// Ignore errors when executing comman and don't panic
+    #[clap(short, long)]
+    pub ignore_errors: bool,
 }
 
 macro_rules! printf {
@@ -51,7 +55,7 @@ fn main() {
 }
 
 fn run(args: &Args) -> ! {
-    let mut contents: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(5000));
+    let mut contents: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(10000));
     let mut sum: (u128, u128) = (0, 0);
     let mut lens: (usize, usize) = (0, 0);
     let mut last_modified: std::time::SystemTime = std::time::SystemTime::now();
@@ -65,14 +69,14 @@ fn run(args: &Args) -> ! {
                 let modified = f.metadata().unwrap().modified().unwrap();
 
                 if modified != last_modified {
-                    execute_command(&args);
+                    execute_command(args);
                 }
 
                 last_modified = modified;
 
                 if args.length || args.sum {
                     deep_check(
-                        &args,
+                        args,
                         &mut contents,
                         &mut sum,
                         &mut lens,
@@ -152,8 +156,12 @@ fn execute_command(args: &Args) {
         .unwrap();
 
     if !status.success() {
-        panic!("Something went wrong");
+        if args.ignore_errors {
+            printf!("Error!\n");
+        } else {
+            panic!("Something went wrong");
+        }
+    } else {
+        printf!("Success!\n");
     }
-
-    printf!("Success!\n");
 }

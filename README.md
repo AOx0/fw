@@ -1,21 +1,23 @@
 
-	fw 0.3.0
-	file-watcher
-	
-	USAGE:
-	    fw [OPTIONS] <PATH> <COMMAND>
-	
-	ARGS:
-	    <PATH>       File to watch
-	    <COMMAND>    Command to execute
-	
-	OPTIONS:
-	    -h, --help           Print help information
-	    -l, --length         Whether a deep check must be made by contents length
-	    -s, --sum            Whether a deep check must be made by contents sum
-	    -t, --time <TIME>    Check interval time [default: 2.5]
-	    -v, --verbose        Show command
-	    -V, --version        Print version information
+	fw 0.3.1
+    file-watcher
+    
+    USAGE:
+    fw [OPTIONS] <PATH> <COMMAND>
+    
+    ARGS:
+    <PATH>       File to watch
+    <COMMAND>    Command to execute
+    
+    OPTIONS:
+    -h, --help             Print help information
+    -i, --ignore-errors    Ignore errors when executing comman and don't panic
+    -l, --length           Whether a deep check must be made by contents length
+    -s, --sum              Whether a deep check must be made by contents sum
+    -t, --time <TIME>      Check interval time [default: 2.5]
+    -v, --verbose          Show command
+    -V, --version          Print version information
+
 
 
 </br>
