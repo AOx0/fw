@@ -21,3 +21,10 @@ Want to run a *justfile* script that compiles a `.tex` file each time it is save
     fw main.tex just
     
 Hence, `just` is executed each time main.tex changes.
+
+
+## Installation
+
+```
+cargo install --git https://github.com/AOx0/fw
+```
