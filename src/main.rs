@@ -21,9 +21,17 @@ struct Args {
     #[clap(short, long, default_value = "2.5")]
     pub time: f32,
 
-    /// Whether a deep check must be made
+    /// Whether a deep check must be made by contents length
     #[clap(short, long)]
-    pub deep: bool,
+    pub length: bool,
+
+    /// Whether a deep check must be made by contents sum
+    #[clap(short, long)]
+    pub sum: bool,
+
+    /// Show command
+    #[clap(short, long)]
+    pub verbose: bool,
 }
 
 macro_rules! printf {
@@ -58,7 +66,7 @@ fn main() {
 
                 last_modified = modified;
 
-                if args.deep {
+                if args.length || args.sum {
                     deep_check(
                         &args,
                         contents.lock().unwrap(),
@@ -66,6 +74,7 @@ fn main() {
                         &mut lens,
                         &mut first_time,
                         &mut f,
+                        (args.length, args.sum),
                     );
                 }
             } else {
@@ -89,24 +98,31 @@ fn deep_check(
     lens: &mut (usize, usize),
     first_time: &mut bool,
     f: &mut File,
+    deep: (bool, bool),
 ) {
     if f.read_to_end(contents.borrow_mut()).is_ok() {
         {
             let c = &contents;
-            lens.0 = c.len();
 
-            if lens.0 != lens.1 && !*first_time {
-                execute_command(args);
-            } else {
+            if deep.0 {
+                lens.0 = c.len();
+
+                if lens.0 != lens.1 && !*first_time {
+                    execute_command(args);
+                }
+
+                *lens = (0, lens.0);
+            }
+
+            if deep.1 {
                 c.iter().for_each(|&n| sum.0 += n as u128);
 
                 if sum.0 != sum.1 {
                     execute_command(args);
                 }
-            }
 
-            *lens = (0, lens.0);
-            *sum = (0, sum.0);
+                *sum = (0, sum.0);
+            }
         }
 
         contents.borrow_mut().clear();
@@ -116,7 +132,15 @@ fn deep_check(
 }
 
 fn execute_command(args: &Args) {
-    printf!("File changed. Executing \"{}\"...", &args.command);
+    printf!(
+        "File changed. Executing{}...",
+        if args.verbose {
+            format!(" \"{}\"", &args.command)
+        } else {
+            "".to_string()
+        }
+    );
+
     let status = subprocess::Exec::shell(&args.command)
         .stdin(NullFile)
         .stdout(NullFile)
