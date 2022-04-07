@@ -8,3 +8,10 @@ edition = "2021"
 [dependencies]
 clap = { version="3.1.8", default-features = false, features=["env", "derive", "unicode", "suggestions", "std"] }
 subprocess = "0.2.8"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "bench"
+harness = false

@@ -1,5 +1,8 @@
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+
 use clap::Parser;
 use std::cell::RefCell;
+use std::env::set_current_dir;
 use std::fs::{File, OpenOptions};
 use std::io::Read;
 use std::path::PathBuf;
@@ -44,13 +47,9 @@ macro_rules! printf {
     }
 }
 
-fn main() {
-    let args = Args::parse();
+fn run(args: &Args) {
+    set_current_dir("/Users/alejandro/repaso").unwrap();
 
-    run(&args);
-}
-
-fn run(args: &Args) -> ! {
     let mut contents: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(5000));
     let mut sum: (u128, u128) = (0, 0);
     let mut lens: (usize, usize) = (0, 0);
@@ -58,21 +57,22 @@ fn run(args: &Args) -> ! {
 
     if args.path.exists() {
         let mut first_time = true;
-        loop {
+
+        for _ in 0..5 {
             let file = OpenOptions::new().read(true).open(&args.path);
 
             if let Ok(mut f) = file {
                 let modified = f.metadata().unwrap().modified().unwrap();
 
                 if modified != last_modified {
-                    execute_command(&args);
+                    execute_command(args);
                 }
 
                 last_modified = modified;
 
                 if args.length || args.sum {
                     deep_check(
-                        &args,
+                        args,
                         &mut contents,
                         &mut sum,
                         &mut lens,
@@ -83,11 +83,12 @@ fn run(args: &Args) -> ! {
                 }
             } else {
                 file.unwrap();
-            }
+            };
 
             if first_time {
                 first_time = false;
             }
+
             sleep(Duration::from_secs_f32(args.time));
         }
     } else {
@@ -157,3 +158,47 @@ fn execute_command(args: &Args) {
 
     printf!("Success!\n");
 }
+
+fn criterion_benchmark(c: &mut Criterion) {
+    c.bench_function("Only File", |b| {
+        b.iter(|| {
+            run(black_box(&Args {
+                path: PathBuf::from("/Users/alejandro/repaso/test.tex"),
+                command: "ls".to_string(),
+                time: 0.0,
+                length: false,
+                sum: false,
+                verbose: false,
+            }))
+        })
+    });
+
+    c.bench_function("Deep", |b| {
+        b.iter(|| {
+            run(black_box(&Args {
+                path: PathBuf::from("/Users/alejandro/repaso/test.tex"),
+                command: "ls".to_string(),
+                time: 0.0,
+                length: true,
+                sum: true,
+                verbose: false,
+            }))
+        })
+    });
+
+    c.bench_function("Count", |b| {
+        b.iter(|| {
+            run(black_box(&Args {
+                path: PathBuf::from("/Users/alejandro/repaso/test.tex"),
+                command: "ls".to_string(),
+                time: 0.0,
+                length: false,
+                sum: true,
+                verbose: false,
+            }))
+        })
+    });
+}
+
+criterion_group!(benches, criterion_benchmark);
+criterion_main!(benches);
