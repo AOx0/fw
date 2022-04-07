@@ -1,9 +1,8 @@
 use clap::Parser;
-use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::fs::{File, OpenOptions};
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
 use std::time::Duration;
 use subprocess::NullFile;
@@ -47,7 +46,7 @@ macro_rules! printf {
 
 fn main() {
     let args = Args::parse();
-    let contents: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::with_capacity(5000)));
+    let mut contents: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(5000));
     let mut sum: (u128, u128) = (0, 0);
     let mut lens: (usize, usize) = (0, 0);
     let mut last_modified: std::time::SystemTime = std::time::SystemTime::now();
@@ -69,7 +68,7 @@ fn main() {
                 if args.length || args.sum {
                     deep_check(
                         &args,
-                        contents.lock().unwrap(),
+                        &mut contents,
                         &mut sum,
                         &mut lens,
                         &mut first_time,
@@ -93,19 +92,18 @@ fn main() {
 
 fn deep_check(
     args: &Args,
-    mut contents: MutexGuard<Vec<u8>>,
+    contents: &mut RefCell<Vec<u8>>,
     sum: &mut (u128, u128),
     lens: &mut (usize, usize),
     first_time: &mut bool,
     f: &mut File,
     deep: (bool, bool),
 ) {
-    if f.read_to_end(contents.borrow_mut()).is_ok() {
+    if f.read_to_end(contents.get_mut()).is_ok() {
+        let contents = contents.get_mut();
         {
-            let c = &contents;
-
             if deep.0 {
-                lens.0 = c.len();
+                lens.0 = contents.len();
 
                 if lens.0 != lens.1 && !*first_time {
                     execute_command(args);
@@ -115,7 +113,7 @@ fn deep_check(
             }
 
             if deep.1 {
-                c.iter().for_each(|&n| sum.0 += n as u128);
+                contents.iter().for_each(|&n| sum.0 += n as u128);
 
                 if sum.0 != sum.1 {
                     execute_command(args);
@@ -125,7 +123,7 @@ fn deep_check(
             }
         }
 
-        contents.borrow_mut().clear();
+        contents.clear();
     } else {
         panic!("Error. Something happened while reading contents!");
     }
