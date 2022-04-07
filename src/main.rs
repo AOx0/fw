@@ -61,33 +61,32 @@ fn run(args: &Args) -> ! {
     let mut sum: (u128, u128) = (0, 0);
     let mut lens: (usize, usize) = (0, 0);
     let mut last_modified: std::time::SystemTime = std::time::SystemTime::now();
+    let mut notified = false;
 
-    let mut proc: RefCell<Popen> = {
-        RefCell::new(
-            Popen::create(
-                &[&args.command],
-                PopenConfig {
-                    detached: true,
-                    stdout: Redirection::Pipe,
-                    stdin: Redirection::Pipe,
-                    stderr: Redirection::Pipe,
-                    ..Default::default()
-                },
-            )
-            .expect("couldn't spawn child command"),
-        )
-    };
+    let mut proc: RefCell<Popen> = RefCell::new(spawn_process(&args, &mut notified));
 
     if args.path.exists() {
         let mut first_time = true;
+
         loop {
+            if proc.get_mut().poll().is_some() && !notified {
+                printf!("Process ended ");
+                notified = true;
+
+                if proc.get_mut().exit_status().unwrap().success() {
+                    printf!("successfully!\n");
+                } else {
+                    printf!("with error!\n");
+                }
+            }
+
             let file = OpenOptions::new().read(true).open(&args.path);
 
             if let Ok(mut f) = file {
                 let modified = f.metadata().unwrap().modified().unwrap();
 
                 if modified != last_modified {
-                    execute_command(args, &mut proc);
+                    execute_command(args, &mut proc, &mut notified);
                 }
 
                 last_modified = modified;
@@ -102,6 +101,7 @@ fn run(args: &Args) -> ! {
                         &mut f,
                         (args.length, args.sum),
                         &mut proc,
+                        &mut notified,
                     );
                 }
             } else {
@@ -128,6 +128,7 @@ fn deep_check(
     f: &mut File,
     deep: (bool, bool),
     proc: &mut RefCell<Popen>,
+    notify: &mut bool,
 ) {
     if f.read_to_end(contents.get_mut()).is_ok() {
         let contents = contents.get_mut();
@@ -136,7 +137,7 @@ fn deep_check(
                 lens.0 = contents.len();
 
                 if lens.0 != lens.1 && !*first_time {
-                    execute_command(args, proc);
+                    execute_command(args, proc, notify);
                 }
 
                 *lens = (0, lens.0);
@@ -146,7 +147,7 @@ fn deep_check(
                 contents.iter().for_each(|&n| sum.0 += n as u128);
 
                 if sum.0 != sum.1 {
-                    execute_command(args, proc);
+                    execute_command(args, proc, notify);
                 }
 
                 *sum = (0, sum.0);
@@ -159,7 +160,7 @@ fn deep_check(
     }
 }
 
-fn execute_command(args: &Args, mut proc: &mut RefCell<Popen>) {
+fn execute_command(args: &Args, mut proc: &mut RefCell<Popen>, notify: &mut bool) {
     printf!(
         "File changed. Finishing{}...",
         if args.verbose {
@@ -171,13 +172,22 @@ fn execute_command(args: &Args, mut proc: &mut RefCell<Popen>) {
 
     let finish = { proc.deref_mut().get_mut().poll().is_some() };
 
-    if finish {
+    if !finish {
         proc.deref_mut().get_mut().terminate().unwrap();
     }
 
     printf!("Rerunning...");
-    let new = Popen::create(
-        &[&args.command],
+    let new = spawn_process(&args, notify);
+
+    proc.deref_mut().replace_with(|_| new);
+    printf!("Spawned!\n")
+}
+
+fn spawn_process(args: &&Args, notify: &mut bool) -> Popen {
+    *notify = false;
+
+    Popen::create(
+        &args.command.split(' ').collect::<Vec<&str>>(),
         PopenConfig {
             detached: true,
             stdout: Redirection::Pipe,
@@ -186,8 +196,5 @@ fn execute_command(args: &Args, mut proc: &mut RefCell<Popen>) {
             ..Default::default()
         },
     )
-    .expect("couldn't spawn child command");
-
-    proc.deref_mut().replace_with(|_| new);
-    printf!("Spawned!\n")
+    .expect("couldn't spawn child command")
 }
