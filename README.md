@@ -1,5 +1,5 @@
 
-	fw 0.3.1
+	fw 0.5.0
     file-watcher
     
     USAGE:
@@ -10,13 +10,15 @@
     <COMMAND>    Command to execute
     
     OPTIONS:
-    -h, --help             Print help information
-    -i, --ignore-errors    Ignore errors when executing comman and don't panic
-    -l, --length           Whether a deep check must be made by contents length
-    -s, --sum              Whether a deep check must be made by contents sum
-    -t, --time <TIME>      Check interval time [default: 2.5]
-    -v, --verbose          Show command
-    -V, --version          Print version information
+    -e, --error-skip     Ignore errors when executing command and don't panic
+    -h, --help           Print help information
+    -i, --interactive    Interactive
+    -l, --length         Whether a deep check must be made by contents length
+    -s, --sum            Whether a deep check must be made by contents sum
+    -t, --time <TIME>    Check interval time [default: 2.5]
+    -v, --verbose        Show command
+    -V, --version        Print version information
+
 
 
 

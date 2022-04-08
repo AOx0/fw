@@ -36,7 +36,11 @@ struct Args {
 
     /// Ignore errors when executing command and don't panic
     #[clap(short, long)]
-    pub ignore_errors: bool,
+    pub error_skip: bool,
+
+    /// Interactive
+    #[clap(short, long)]
+    pub interactive: bool,
 }
 
 macro_rules! printf {
@@ -190,9 +194,21 @@ fn spawn_process(args: &&Args, notify: &mut bool) -> Popen {
         &args.command.split(' ').collect::<Vec<&str>>(),
         PopenConfig {
             detached: true,
-            stdout: Redirection::Pipe,
-            stdin: Redirection::Pipe,
-            stderr: Redirection::Pipe,
+            stdout: if args.interactive {
+                Redirection::None
+            } else {
+                Redirection::Pipe
+            },
+            stdin: if args.interactive {
+                Redirection::None
+            } else {
+                Redirection::Pipe
+            },
+            stderr: if args.interactive {
+                Redirection::None
+            } else {
+                Redirection::Pipe
+            },
             ..Default::default()
         },
     )
